@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#0b1437" />
+<title>Roulette Oracle · AI Predictor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
+<style>
+  :root{
+    --bg-0:#070b22;
+    --bg-1:#0b1437;
+    --bg-2:#111c4d;
+    --navy:#1a2a6c;
+    --navy-2:#243a8a;
+    --cream:#fdf6ec;
+    --cream-dim:#e9e0cf;
+    --rose:#e7b08a;
+    --rose-2:#d99974;
+    --rose-3:#b87655;
+    --gold:#f5d28b;
+    --red:#e23a4b;
+    --black:#15192e;
+    --green:#1f8a5b;
+    --good:#52e0a4;
+    --bad:#ff6b81;
+    --glass:rgba(255,255,255,0.06);
+    --glass-2:rgba(255,255,255,0.09);
+    --glass-line:rgba(255,255,255,0.14);
+    --shadow:0 20px 60px -20px rgba(0,0,0,.55);
+    --radius:18px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    color:var(--cream);
+    background:
+      radial-gradient(1200px 700px at 85% -10%, rgba(231,176,138,.18), transparent 60%),
+      radial-gradient(1000px 800px at -10% 110%, rgba(36,58,138,.55), transparent 60%),
+      radial-gradient(700px 500px at 50% 50%, rgba(17,28,77,.6), transparent 70%),
+      linear-gradient(180deg, #060a1f 0%, #0a1234 60%, #060a1f 100%);
+    min-height:100dvh;
+    overflow-x:hidden;
+    letter-spacing:.01em;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+  }
+  /* animated bg orbs */
+  .orb{position:fixed;border-radius:50%;filter:blur(60px);opacity:.45;pointer-events:none;z-index:0;will-change:transform;}
+  .orb.o1{width:380px;height:380px;background:#3a55b8;top:-120px;left:-100px;animation:float1 18s ease-in-out infinite;}
+  .orb.o2{width:340px;height:340px;background:#e7b08a;bottom:-120px;right:-100px;opacity:.28;animation:float2 22s ease-in-out infinite;}
+  .orb.o3{width:260px;height:260px;background:#7a9bff;top:40%;left:55%;opacity:.18;animation:float1 26s ease-in-out infinite reverse;}
+  @keyframes float1{0%,100%{transform:translate(0,0)}50%{transform:translate(40px,-30px)}}
+  @keyframes float2{0%,100%{transform:translate(0,0)}50%{transform:translate(-30px,40px)}}
+
+  .app{
+    position:relative;z-index:1;
+    max-width:1280px;margin:0 auto;
+    padding:clamp(16px,2.4vw,28px);
+    display:grid;gap:clamp(16px,2vw,22px);
+  }
+
+  /* HEADER */
+  .topbar{
+    display:flex;align-items:center;justify-content:space-between;gap:14px;
+    padding:14px 18px;
+    background:linear-gradient(135deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+    border:1px solid var(--glass-line);
+    backdrop-filter:blur(18px) saturate(140%);
+    -webkit-backdrop-filter:blur(18px) saturate(140%);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+  }
+  .brand{display:flex;align-items:center;gap:12px;min-width:0;}
+  .logo{
+    width:42px;height:42px;border-radius:12px;flex:0 0 auto;
+    background:
+      radial-gradient(circle at 30% 30%, #ffe6c7, #e7b08a 40%, #b87655 75%, #6d3a25);
+    box-shadow:inset 0 0 0 2px rgba(255,255,255,.25), 0 8px 22px rgba(231,176,138,.35);
+    position:relative;
+    animation:spinSlow 14s linear infinite;
+  }
+  .logo::after{
+    content:"";position:absolute;inset:8px;border-radius:50%;
+    background:radial-gradient(circle, #0b1437 40%, #1a2a6c);
+    box-shadow:inset 0 0 0 2px rgba(255,255,255,.15);
+  }
+  @keyframes spinSlow{to{transform:rotate(360deg)}}
+  .title{display:flex;flex-direction:column;min-width:0;}
+  .title h1{
+    margin:0;font-family:'Playfair Display',serif;font-weight:700;
+    font-size:clamp(18px,2.2vw,24px);letter-spacing:.2px;
+    background:linear-gradient(90deg,#fdf6ec,#e7b08a 60%, #f5d28b);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .title small{color:rgba(253,246,236,.65);font-size:11px;letter-spacing:.18em;text-transform:uppercase;}
+  .status{
+    display:inline-flex;align-items:center;gap:8px;
+    padding:8px 12px;border-radius:999px;
+    background:rgba(82,224,164,.1);border:1px solid rgba(82,224,164,.3);
+    font-size:12px;color:var(--good);white-space:nowrap;
+  }
+  .status .dot{width:8px;height:8px;border-radius:50%;background:var(--good);box-shadow:0 0 12px var(--good);animation:pulse 1.6s ease-in-out infinite;}
+  @keyframes pulse{50%{opacity:.4;transform:scale(.85)}}
+
+  /* GRID */
+  .grid{display:grid;grid-template-columns: 1.15fr .85fr;gap:clamp(16px,2vw,22px);}
+  @media (max-width: 980px){ .grid{grid-template-columns:1fr;} }
+
+  .card{
+    position:relative;
+    background:linear-gradient(160deg, rgba(255,255,255,.08), rgba(255,255,255,.025));
+    border:1px solid var(--glass-line);
+    backdrop-filter:blur(18px) saturate(140%);
+    -webkit-backdrop-filter:blur(18px) saturate(140%);
+    border-radius:var(--radius);
+    padding:clamp(16px,2vw,22px);
+    box-shadow:var(--shadow);
+    overflow:hidden;
+  }
+  .card::before{
+    content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+    background:linear-gradient(180deg, rgba(255,255,255,.08), transparent 30%);
+    mask:linear-gradient(#000,#000);
+  }
+  .card h2{
+    margin:0 0 4px;font-family:'Playfair Display',serif;font-weight:700;
+    font-size:clamp(16px,1.8vw,20px);
+    color:var(--cream);
+  }
+  .card .sub{color:rgba(253,246,236,.6);font-size:12.5px;margin-bottom:14px;}
+
+  /* SELECTED ROW */
+  .picks{
+    display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;min-height:46px;
+    padding:8px;border-radius:14px;
+    background:rgba(0,0,0,.18);border:1px dashed rgba(255,255,255,.12);
+  }
+  .pick{
+    --c:#2a3a7a;
+    width:38px;height:38px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-weight:700;font-size:14px;color:#fff;
+    background:radial-gradient(circle at 30% 30%, rgba(255,255,255,.35), transparent 55%), var(--c);
+    box-shadow:inset 0 0 0 2px rgba(255,255,255,.18), 0 6px 14px rgba(0,0,0,.4);
+    animation:pop .25s ease-out;
+    position:relative;
+  }
+  .pick .idx{
+    position:absolute;top:-6px;right:-6px;
+    background:var(--rose);color:#2a1810;font-size:10px;font-weight:800;
+    width:16px;height:16px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 2px 6px rgba(0,0,0,.5);
+  }
+  .pick.green{--c:#1f8a5b;}
+  .pick.red{--c:#e23a4b;}
+  .pick.black{--c:#15192e;}
+  @keyframes pop{from{transform:scale(.4);opacity:0}to{transform:scale(1);opacity:1}}
+
+  .ph-empty{color:rgba(253,246,236,.45);font-size:12.5px;display:flex;align-items:center;padding:8px 6px;}
+
+  /* ROULETTE GRID */
+  .roulette{
+    display:grid;
+    grid-template-columns: 44px repeat(12, 1fr);
+    gap:6px;
+  }
+  .cell{
+    aspect-ratio:1/1;
+    border-radius:10px;
+    display:flex;align-items:center;justify-content:center;
+    font-weight:700;font-size:clamp(11px,1.25vw,14px);
+    color:#fff;cursor:pointer;user-select:none;
+    transition:transform .12s ease, box-shadow .2s ease, filter .2s ease;
+    position:relative;
+    border:1px solid rgba(255,255,255,.12);
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.05), 0 4px 10px rgba(0,0,0,.25);
+  }
+  .cell.red{background:linear-gradient(160deg,#ef4859,#b41e2d);}
+  .cell.black{background:linear-gradient(160deg,#2a2f47,#0c1024);}
+  .cell.green{background:linear-gradient(160deg,#2bb978,#136b41);grid-row:span 3;aspect-ratio:auto;}
+  .cell:hover{transform:translateY(-2px);filter:brightness(1.15);}
+  .cell:active{transform:translateY(0);filter:brightness(.95);}
+  .cell.selected{
+    outline:2px solid var(--rose);
+    box-shadow:0 0 0 4px rgba(231,176,138,.25), 0 8px 20px rgba(231,176,138,.35);
+  }
+  .cell.disabled{opacity:.35;pointer-events:none;filter:grayscale(.4);}
+
+  .btn-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;}
+  button.btn{
+    appearance:none;border:none;cursor:pointer;
+    font-family:inherit;font-weight:600;font-size:13.5px;
+    padding:11px 18px;border-radius:12px;
+    color:var(--cream);
+    background:linear-gradient(135deg, rgba(255,255,255,.1), rgba(255,255,255,.04));
+    border:1px solid var(--glass-line);
+    transition:transform .12s ease, box-shadow .2s ease, background .2s ease;
+    display:inline-flex;align-items:center;gap:8px;
+  }
+  button.btn:hover{transform:translateY(-1px);background:linear-gradient(135deg, rgba(255,255,255,.16), rgba(255,255,255,.06));}
+  button.btn:active{transform:translateY(0);}
+  button.btn.primary{
+    background:linear-gradient(135deg, #e7b08a, #b87655);
+    color:#2a1810;border:1px solid rgba(255,255,255,.25);
+    box-shadow:0 10px 24px -8px rgba(231,176,138,.55);
+  }
+  button.btn.primary:hover{filter:brightness(1.05);}
+  button.btn[disabled]{opacity:.55;cursor:not-allowed;transform:none;filter:grayscale(.2);}
+
+  /* PROGRESS */
+  .progress{
+    margin-top:10px;height:6px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden;
+    border:1px solid var(--glass-line);
+  }
+  .progress > span{
+    display:block;height:100%;
+    background:linear-gradient(90deg, var(--rose), var(--gold));
+    width:0%;transition:width .25s ease;
+    box-shadow:0 0 12px rgba(231,176,138,.5);
+  }
+
+  /* PREDICTION PANEL */
+  .pred-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  @media (max-width:520px){ .pred-grid{grid-template-columns:1fr;} }
+  .pred{
+    position:relative;border-radius:16px;padding:18px;
+    background:linear-gradient(160deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+    border:1px solid var(--glass-line);
+    overflow:hidden;
+  }
+  .pred .label{font-size:11.5px;letter-spacing:.22em;text-transform:uppercase;color:rgba(253,246,236,.6);}
+  .pred .val{
+    font-family:'Playfair Display',serif;font-weight:800;
+    font-size:clamp(26px,4vw,38px);margin-top:6px;line-height:1;
+    background:linear-gradient(90deg,#fdf6ec,#e7b08a);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .pred .pct{font-size:12.5px;color:rgba(253,246,236,.65);margin-top:4px;}
+  .pred .bar{
+    margin-top:12px;height:8px;border-radius:99px;background:rgba(0,0,0,.25);overflow:hidden;
+    position:relative;
+  }
+  .pred .bar .fill{
+    position:absolute;left:0;top:0;bottom:0;width:0%;
+    border-radius:99px;
+    transition:width .6s cubic-bezier(.2,.7,.2,1);
+  }
+  .pred.parity .fill{background:linear-gradient(90deg,#7a9bff,#e7b08a);}
+  .pred.color .fill{background:linear-gradient(90deg,#e23a4b,#15192e);}
+  .pred .chips{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;}
+  .chip{
+    padding:6px 10px;border-radius:99px;font-size:11.5px;
+    background:rgba(0,0,0,.25);border:1px solid var(--glass-line);
+    color:rgba(253,246,236,.85);
+  }
+  .chip.win{background:rgba(82,224,164,.12);border-color:rgba(82,224,164,.35);color:var(--good);}
+  .chip.lose{background:rgba(255,107,129,.12);border-color:rgba(255,107,129,.35);color:var(--bad);}
+
+  .empty{
+    text-align:center;padding:32px 12px;color:rgba(253,246,236,.6);
+  }
+  .empty .ic{
+    width:56px;height:56px;margin:0 auto 10px;border-radius:50%;
+    background:radial-gradient(circle at 30% 30%, #ffe6c7, #e7b08a 50%, #6d3a25);
+    box-shadow:0 10px 30px rgba(231,176,138,.35);
+    animation:spinSlow 10s linear infinite;
+  }
+
+  /* HISTORY */
+  .hist{display:flex;gap:8px;flex-wrap:wrap;max-height:140px;overflow:auto;padding:4px;}
+  .hist::-webkit-scrollbar{width:6px;height:6px;}
+  .hist::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:99px;}
+  .hist .pick{width:32px;height:32px;font-size:12px;}
+
+  /* STATS */
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px;}
+  @media (max-width:520px){ .stats{grid-template-columns:repeat(2,1fr);} }
+  .stat{
+    padding:10px 12px;border-radius:12px;
+    background:rgba(0,0,0,.2);border:1px solid var(--glass-line);
+  }
+  .stat .k{font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:rgba(253,246,236,.55);}
+  .stat .v{font-family:'Playfair Display',serif;font-weight:700;font-size:18px;margin-top:2px;color:var(--cream);}
+
+  /* TOAST */
+  .toast{
+    position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);
+    background:rgba(11,20,55,.9);border:1px solid var(--glass-line);
+    color:var(--cream);padding:10px 16px;border-radius:99px;font-size:13px;
+    backdrop-filter:blur(10px);box-shadow:0 10px 30px rgba(0,0,0,.4);
+    opacity:0;pointer-events:none;transition:.25s ease;z-index:50;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  /* split-screen / narrow optimizations */
+  @media (max-width:760px){
+    .roulette{grid-template-columns: 36px repeat(12, 1fr); gap:4px;}
+    .cell{border-radius:8px;font-size:11px;}
+    .pick{width:34px;height:34px;font-size:13px;}
+  }
+  @media (max-width:480px){
+    .roulette{grid-template-columns: 30px repeat(12, 1fr); gap:3px;}
+    .cell{border-radius:6px;font-size:10px;}
+    .topbar{padding:10px 12px;}
+    .status{padding:6px 10px;font-size:11px;}
+  }
+
+  /* tiny screens / split */
+  @media (max-height:520px){
+    .app{padding:10px;gap:10px;}
+    .card{padding:12px;}
+  }
+
+  /* footer */
+  .foot{
+    text-align:center;color:rgba(253,246,236,.4);font-size:11.5px;padding:10px 0 4px;
+  }
+  .foot b{color:var(--rose);font-weight:600;}
+</style>
+</head>
+<body>
+  <div class="orb o1"></div>
+  <div class="orb o2"></div>
+  <div class="orb o3"></div>
+
+  <main class="app">
+
+    <!-- HEADER -->
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo" aria-hidden="true"></div>
+        <div class="title">
+          <h1>Roulette Oracle</h1>
+          <small>AI · TensorFlow.js Predictor</small>
+        </div>
+      </div>
+      <div class="status" id="status">
+        <span class="dot"></span>
+        <span id="statusText">Engine Ready</span>
+      </div>
+    </header>
+
+    <!-- MAIN GRID -->
+    <section class="grid">
+
+      <!-- INPUT CARD -->
+      <article class="card">
+        <h2>Last 7 Spins</h2>
+        <div class="sub">Tap the roulette to register the most recent 7 rounds (oldest first).</div>
+
+        <div class="picks" id="picks" aria-live="polite"></div>
+
+        <div class="roulette" id="board" aria-label="Roulette number grid"></div>
+
+        <div class="btn-row">
+          <button class="btn primary" id="btnPredict" disabled>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            Train & Predict
+          </button>
+          <button class="btn" id="btnUndo">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M9 14l-4-4 4-4M5 10h9a5 5 0 010 10h-1" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Undo
+          </button>
+          <button class="btn" id="btnClear">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Clear
+          </button>
+        </div>
+
+        <div class="progress" id="progressWrap" style="display:none;"><span id="progressBar"></span></div>
+      </article>
+
+      <!-- PREDICTION CARD -->
+      <article class="card">
+        <h2>Next Spin Prediction</h2>
+        <div class="sub">Model trained on your input history with neural + pattern analysis.</div>
+
+        <div id="predEmpty" class="empty">
+          <div class="ic"></div>
+          <div>Add 7 spins, then press <b style="color:var(--rose)">Train &amp; Predict</b>.</div>
+        </div>
+
+        <div id="predBody" style="display:none;">
+          <div class="pred-grid">
+            <div class="pred parity">
+              <div class="label">Parity</div>
+              <div class="val" id="parityVal">—</div>
+              <div class="pct" id="parityPct">confidence —</div>
+              <div class="bar"><div class="fill" id="parityBar"></div></div>
+              <div class="chips">
+                <span class="chip" id="parityChipE">Even —%</span>
+                <span class="chip" id="parityChipO">Odd —%</span>
+              </div>
+            </div>
+
+            <div class="pred color">
+              <div class="label">Color</div>
+              <div class="val" id="colorVal">—</div>
+              <div class="pct" id="colorPct">confidence —</div>
+              <div class="bar"><div class="fill" id="colorBar"></div></div>
+              <div class="chips">
+                <span class="chip" id="colorChipR">Red —%</span>
+                <span class="chip" id="colorChipB">Black —%</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="stats">
+            <div class="stat"><div class="k">Reds</div><div class="v" id="sRed">0</div></div>
+            <div class="stat"><div class="k">Blacks</div><div class="v" id="sBlack">0</div></div>
+            <div class="stat"><div class="k">Evens</div><div class="v" id="sEven">0</div></div>
+            <div class="stat"><div class="k">Odds</div><div class="v" id="sOdd">0</div></div>
+          </div>
+        </div>
+      </article>
+
+    </section>
+
+    <!-- HISTORY -->
+    <article class="card">
+      <h2>Session History</h2>
+      <div class="sub">Every confirmed round you train on is archived here. The model learns from the full session.</div>
+      <div class="hist" id="hist"></div>
+      <div class="btn-row">
+        <button class="btn" id="btnExport">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Export Session
+        </button>
+        <button class="btn" id="btnResetHist">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3 12a9 9 0 1015.5-6.36L21 8M21 3v5h-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Reset Session
+        </button>
+      </div>
+    </article>
+
+    <div class="foot">Crafted with <b>♠</b> Glass UI · TensorFlow.js · Pattern Analysis</div>
+  </main>
+
+  <div class="toast" id="toast">Saved</div>
+
+<script>
+/* ============================================
+   Roulette Oracle - Client-side ML Predictor
+   ============================================ */
+
+const RED_NUMS = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
+const BLACK_NUMS = new Set([2,4,6,8,10,11,13,15,17,20,22,24,26,28,29,31,33,35]);
+const SEQ_LEN = 7;
+
+const colorOf = (n) => n===0 ? 'green' : (RED_NUMS.has(n) ? 'red' : 'black');
+const parityOf = (n) => n===0 ? 'zero' : (n%2===0 ? 'even' : 'odd');
+
+/* ---------- State ---------- */
+const state = {
+  selected: [],           // current 7 picks (numbers)
+  history: [],            // full session history (numbers) — appended after every Predict
+  isTraining: false,
+};
+
+/* ---------- DOM ---------- */
+const $ = (id) => document.getElementById(id);
+const board = $('board');
+const picksEl = $('picks');
+const histEl = $('hist');
+const btnPredict = $('btnPredict');
+const btnUndo = $('btnUndo');
+const btnClear = $('btnClear');
+const btnExport = $('btnExport');
+const btnResetHist = $('btnResetHist');
+const progressWrap = $('progressWrap');
+const progressBar = $('progressBar');
+const statusText = $('statusText');
+const toast = $('toast');
+
+/* ---------- Toast ---------- */
+let toastTimer;
+function showToast(msg){
+  toast.textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>toast.classList.remove('show'), 1800);
+}
+
+/* ---------- Build Roulette Board ---------- */
+function buildBoard(){
+  // standard layout: 0 on left spanning 3 rows, then rows top->bottom: 3..36, 2..35, 1..34
+  // top row: 3,6,9,...36
+  // mid:    2,5,8,...35
+  // bot:    1,4,7,...34
+  const rows = [
+    [3,6,9,12,15,18,21,24,27,30,33,36],
+    [2,5,8,11,14,17,20,23,26,29,32,35],
+    [1,4,7,10,13,16,19,22,25,28,31,34],
+  ];
+
+  // 0 spans 3 rows
+  const zero = document.createElement('div');
+  zero.className = 'cell green';
+  zero.dataset.num = 0;
+  zero.textContent = '0';
+  zero.style.gridRow = '1 / span 3';
+  zero.style.gridColumn = '1';
+  zero.style.aspectRatio = 'auto';
+  zero.setAttribute('role','button');
+  zero.setAttribute('aria-label','0 green');
+  board.appendChild(zero);
+
+  rows.forEach((row, rIdx) => {
+    row.forEach((n, cIdx) => {
+      const cell = document.createElement('div');
+      cell.className = 'cell ' + colorOf(n);
+      cell.dataset.num = n;
+      cell.textContent = n;
+      cell.style.gridRow = (rIdx+1);
+      cell.style.gridColumn = (cIdx+2);
+      cell.setAttribute('role','button');
+      cell.setAttribute('aria-label', n + ' ' + colorOf(n));
+      board.appendChild(cell);
+    });
+  });
+
+  board.addEventListener('click', (e)=>{
+    const t = e.target.closest('.cell');
+    if(!t) return;
+    if(state.selected.length >= SEQ_LEN){
+      showToast('Already 7 spins — predict or undo');
+      return;
+    }
+    const num = Number(t.dataset.num);
+    state.selected.push(num);
+    renderPicks();
+    updateButtons();
+    if(state.selected.length === SEQ_LEN){
+      showToast('Ready to predict ✓');
+    }
+  });
+}
+
+/* ---------- Render Picks ---------- */
+function renderPicks(){
+  picksEl.innerHTML = '';
+  if(state.selected.length === 0){
+    const ph = document.createElement('div');
+    ph.className = 'ph-empty';
+    ph.textContent = 'Your last 7 spins will appear here…';
+    picksEl.appendChild(ph);
+    return;
+  }
+  state.selected.forEach((n, i) => {
+    const el = document.createElement('div');
+    el.className = 'pick ' + colorOf(n);
+    el.innerHTML = `${n}<span class="idx">${i+1}</span>`;
+    picksEl.appendChild(el);
+  });
+}
+
+/* ---------- Render History ---------- */
+function renderHistory(){
+  histEl.innerHTML = '';
+  if(state.history.length === 0){
+    const ph = document.createElement('div');
+    ph.className = 'ph-empty';
+    ph.textContent = 'No archived rounds yet.';
+    histEl.appendChild(ph);
+    return;
+  }
+  state.history.slice(-80).forEach((n)=>{
+    const el = document.createElement('div');
+    el.className = 'pick ' + colorOf(n);
+    el.textContent = n;
+    histEl.appendChild(el);
+  });
+}
+
+/* ---------- Buttons ---------- */
+function updateButtons(){
+  btnPredict.disabled = state.selected.length !== SEQ_LEN || state.isTraining;
+  btnUndo.disabled = state.selected.length === 0 || state.isTraining;
+  btnClear.disabled = state.selected.length === 0 || state.isTraining;
+}
+
+btnUndo.addEventListener('click', ()=>{
+  state.selected.pop();
+  renderPicks();
+  updateButtons();
+});
+btnClear.addEventListener('click', ()=>{
+  state.selected = [];
+  renderPicks();
+  updateButtons();
+});
+btnResetHist.addEventListener('click', ()=>{
+  if(!state.history.length) return;
+  if(!confirm('Reset full session history?')) return;
+  state.history = [];
+  localStorage.removeItem('ro.history');
+  renderHistory();
+  showToast('Session reset');
+});
+btnExport.addEventListener('click', ()=>{
+  if(!state.history.length){ showToast('Nothing to export'); return; }
+  const blob = new Blob([JSON.stringify({history:state.history}, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'roulette-session.json';
+  a.click(); URL.revokeObjectURL(url);
+});
+
+/* ---------- ENCODING ----------
+   Each spin -> 5-dim feature: [num_norm, is_red, is_black, is_even, is_odd]
+   Sequence shape: [SEQ_LEN, 5]
+*/
+function encodeSpin(n){
+  const c = colorOf(n);
+  const p = parityOf(n);
+  return [
+    n/36,
+    c==='red'?1:0,
+    c==='black'?1:0,
+    p==='even'?1:0,
+    p==='odd'?1:0,
+  ];
+}
+function encodeSeq(arr){ return arr.map(encodeSpin); }
+
+/* Build supervised samples from a sequence of length >= SEQ_LEN+1.
+   X: 7 consecutive spins (encoded), Y: next spin's [parityEven, parityOdd, colorRed, colorBlack]
+*/
+function buildSamples(seq){
+  const xs=[], yP=[], yC=[];
+  for(let i=0; i + SEQ_LEN < seq.length; i++){
+    const window = seq.slice(i, i+SEQ_LEN);
+    const next = seq[i+SEQ_LEN];
+    xs.push(encodeSeq(window));
+    const p = parityOf(next);
+    const c = colorOf(next);
+    // skip zeros for label (treat as noise) — but still include with neutral label
+    yP.push([p==='even'?1:0, p==='odd'?1:0]); // if zero, [0,0]
+    yC.push([c==='red'?1:0, c==='black'?1:0]); // if green, [0,0]
+  }
+  return {xs, yP, yC};
+}
+
+/* ---------- Statistical Predictor (always available) ---------- */
+function statPredict(seq){
+  // weighted recency: more recent spins weigh more
+  let eR=0, eB=0, eE=0, eO=0, total=0;
+  seq.forEach((n, i)=>{
+    const w = Math.pow(1.18, i+1); // recency weight
+    total += w;
+    const c = colorOf(n), p = parityOf(n);
+    if(c==='red') eR += w; else if(c==='black') eB += w;
+    if(p==='even') eE += w; else if(p==='odd') eO += w;
+  });
+  // anti-streak bias (mean reversion) + transition counts (markov-ish)
+  const lastRunColor = runLength(seq, (a,b)=>colorOf(a)===colorOf(b) && colorOf(a)!=='green');
+  const lastRunParity = runLength(seq, (a,b)=>parityOf(a)===parityOf(b) && parityOf(a)!=='zero');
+
+  // base probabilities from frequency
+  let pE = eE/(eE+eO || 1);
+  let pO = 1-pE;
+  let pR = eR/(eR+eB || 1);
+  let pB = 1-pR;
+
+  // light mean reversion: if last 3+ same -> shift 8% toward opposite
+  if(lastRunColor >= 3){
+    const lastC = colorOf(seq[seq.length-1]);
+    if(lastC==='red'){ pR -= 0.08; pB += 0.08; }
+    else if(lastC==='black'){ pB -= 0.08; pR += 0.08; }
+  }
+  if(lastRunParity >= 3){
+    const lastP = parityOf(seq[seq.length-1]);
+    if(lastP==='even'){ pE -= 0.08; pO += 0.08; }
+    else if(lastP==='odd'){ pO -= 0.08; pE += 0.08; }
+  }
+  // clamp
+  const cl = (v)=>Math.max(0.02, Math.min(0.98, v));
+  pE = cl(pE); pO = cl(pO);
+  pR = cl(pR); pB = cl(pB);
+  // normalize
+  const sP = pE+pO, sC = pR+pB;
+  return { pE:pE/sP, pO:pO/sP, pR:pR/sC, pB:pB/sC };
+}
+function runLength(seq, sameFn){
+  let r=1;
+  for(let i=seq.length-1;i>0;i--){
+    if(sameFn(seq[i], seq[i-1])) r++; else break;
+  }
+  return r;
+}
+
+/* ---------- TFJS Model ---------- */
+let model = null;
+function buildModel(){
+  const inp = tf.input({shape:[SEQ_LEN, 5]});
+  const x1 = tf.layers.gru({units:24, returnSequences:true, recurrentDropout:0.0}).apply(inp);
+  const x2 = tf.layers.gru({units:16}).apply(x1);
+  const d  = tf.layers.dense({units:24, activation:'relu'}).apply(x2);
+  const dr = tf.layers.dropout({rate:0.15}).apply(d);
+  const outP = tf.layers.dense({units:2, activation:'softmax', name:'parity'}).apply(dr);
+  const outC = tf.layers.dense({units:2, activation:'softmax', name:'color'}).apply(dr);
+  const m = tf.model({inputs:inp, outputs:[outP, outC]});
+  m.compile({
+    optimizer: tf.train.adam(0.01),
+    loss: {parity:'categoricalCrossentropy', color:'categoricalCrossentropy'},
+  });
+  return m;
+}
+
+async function trainModel(allSeq, epochs=40){
+  // Need at least SEQ_LEN+1 spins to build one sample
+  const samples = buildSamples(allSeq);
+  if(samples.xs.length < 1) return null;
+
+  // augment: also generate synthetic windows by shuffling-free reverse-pass not used; instead replicate small set to stabilize
+  let xs = samples.xs, yP = samples.yP, yC = samples.yC;
+  if(xs.length < 6){
+    // replicate to avoid degenerate batch
+    const times = Math.ceil(6 / xs.length);
+    xs = Array(times).fill(xs).flat();
+    yP = Array(times).fill(yP).flat();
+    yC = Array(times).fill(yC).flat();
+  }
+
+  const X = tf.tensor3d(xs);
+  const YP = tf.tensor2d(yP);
+  const YC = tf.tensor2d(yC);
+
+  if(!model) model = buildModel();
+
+  await model.fit(X, [YP, YC], {
+    epochs,
+    batchSize: Math.min(8, xs.length),
+    shuffle: true,
+    verbose: 0,
+    callbacks: {
+      onEpochEnd: (epoch)=>{
+        const pct = Math.round(((epoch+1)/epochs)*100);
+        progressBar.style.width = pct + '%';
+        statusText.textContent = `Training neural model · ${pct}%`;
+      }
+    }
+  });
+
+  X.dispose(); YP.dispose(); YC.dispose();
+  return model;
+}
+
+async function nnPredict(seq){
+  if(!model) return null;
+  const inp = tf.tensor3d([encodeSeq(seq)]);
+  const [pP, pC] = model.predict(inp);
+  const arrP = (await pP.data());
+  const arrC = (await pC.data());
+  inp.dispose(); pP.dispose(); pC.dispose();
+  return {
+    pE: arrP[0], pO: arrP[1],
+    pR: arrC[0], pB: arrC[1],
+  };
+}
+
+/* ---------- Predict pipeline ---------- */
+btnPredict.addEventListener('click', async ()=>{
+  if(state.selected.length !== SEQ_LEN || state.isTraining) return;
+  state.isTraining = true;
+  updateButtons();
+  progressWrap.style.display='block';
+  progressBar.style.width='0%';
+  statusText.textContent = 'Preparing samples…';
+
+  // Append current 7 to history (training corpus)
+  // Strategy: history grows only with confirmed predict actions; current 7 are merged uniquely each time
+  // To allow continuous learning across sessions, we merge current selection into running history.
+  appendToHistory(state.selected);
+
+  try{
+    // Train if we have enough data
+    const corpus = state.history.length >= SEQ_LEN+1 ? state.history : state.selected;
+    if(corpus.length >= SEQ_LEN+1){
+      await trainModel(corpus, 40);
+    } else {
+      // not enough data for supervised — skip NN
+      statusText.textContent = 'Pattern analysis mode';
+    }
+
+    // Get predictions
+    const stat = statPredict(state.selected);
+    let nn = null;
+    if(model && corpus.length >= SEQ_LEN+1){
+      nn = await nnPredict(state.selected);
+    }
+    // Blend: 60% NN, 40% statistical (if NN exists); else 100% stat
+    const blend = (a,b,w=0.6) => nn ? (a*w + b*(1-w)) : b;
+    const pE = blend(nn?.pE ?? 0, stat.pE);
+    const pO = blend(nn?.pO ?? 0, stat.pO);
+    const pR = blend(nn?.pR ?? 0, stat.pR);
+    const pB = blend(nn?.pB ?? 0, stat.pB);
+    // normalize
+    const sP=pE+pO, sC=pR+pB;
+    const PE=pE/sP, PO=pO/sP, PR=pR/sC, PB=pB/sC;
+
+    renderPrediction({PE,PO,PR,PB});
+    statusText.textContent = 'Engine Ready';
+    showToast('Prediction generated ✓');
+  } catch(err){
+    console.error(err);
+    statusText.textContent = 'Error';
+    showToast('Prediction failed');
+  } finally {
+    state.isTraining = false;
+    setTimeout(()=>{ progressWrap.style.display='none'; }, 350);
+    // Clear current 7 to allow next round entry
+    state.selected = [];
+    renderPicks();
+    updateButtons();
+  }
+});
+
+function appendToHistory(arr){
+  // append in order; persist
+  state.history.push(...arr);
+  // cap size to keep memory tight
+  if(state.history.length > 500) state.history = state.history.slice(-500);
+  try{ localStorage.setItem('ro.history', JSON.stringify(state.history)); }catch{}
+  renderHistory();
+  updateStats();
+}
+
+function updateStats(){
+  let r=0,b=0,e=0,o=0;
+  state.history.forEach(n=>{
+    const c=colorOf(n), p=parityOf(n);
+    if(c==='red')r++; else if(c==='black')b++;
+    if(p==='even')e++; else if(p==='odd')o++;
+  });
+  $('sRed').textContent=r;
+  $('sBlack').textContent=b;
+  $('sEven').textContent=e;
+  $('sOdd').textContent=o;
+}
+
+function renderPrediction({PE,PO,PR,PB}){
+  $('predEmpty').style.display = 'none';
+  $('predBody').style.display = 'block';
+
+  const parityWin = PE >= PO ? 'EVEN' : 'ODD';
+  const parityConf = Math.max(PE,PO);
+  const colorWin = PR >= PB ? 'RED' : 'BLACK';
+  const colorConf = Math.max(PR,PB);
+
+  $('parityVal').textContent = parityWin;
+  $('parityPct').textContent = `confidence ${(parityConf*100).toFixed(1)}%`;
+  $('parityBar').style.width = (parityConf*100) + '%';
+  $('parityChipE').textContent = `Even ${(PE*100).toFixed(0)}%`;
+  $('parityChipO').textContent = `Odd ${(PO*100).toFixed(0)}%`;
+  $('parityChipE').className = 'chip ' + (parityWin==='EVEN'?'win':'');
+  $('parityChipO').className = 'chip ' + (parityWin==='ODD'?'win':'');
+
+  $('colorVal').textContent = colorWin;
+  $('colorPct').textContent = `confidence ${(colorConf*100).toFixed(1)}%`;
+  $('colorBar').style.width = (colorConf*100) + '%';
+  $('colorChipR').textContent = `Red ${(PR*100).toFixed(0)}%`;
+  $('colorChipB').textContent = `Black ${(PB*100).toFixed(0)}%`;
+  $('colorChipR').className = 'chip ' + (colorWin==='RED'?'win':'');
+  $('colorChipB').className = 'chip ' + (colorWin==='BLACK'?'win':'');
+
+  // Color the headline values
+  $('colorVal').style.background = colorWin==='RED'
+    ? 'linear-gradient(90deg,#ff8190,#e23a4b)'
+    : 'linear-gradient(90deg,#a9b3d6,#15192e)';
+  $('colorVal').style.webkitBackgroundClip='text';
+  $('colorVal').style.backgroundClip='text';
+  $('colorVal').style.color='transparent';
+}
+
+/* ---------- Persistence ---------- */
+function loadPersisted(){
+  try{
+    const raw = localStorage.getItem('ro.history');
+    if(raw){
+      const arr = JSON.parse(raw);
+      if(Array.isArray(arr)) state.history = arr.filter(n=>Number.isInteger(n)&&n>=0&&n<=36);
+    }
+  }catch{}
+}
+
+/* ---------- Init ---------- */
+function init(){
+  buildBoard();
+  loadPersisted();
+  renderPicks();
+  renderHistory();
+  updateButtons();
+  updateStats();
+  // backend
+  tf.setBackend('webgl').catch(()=>tf.setBackend('cpu'));
+}
+init();
+
+</script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+</body>
+</html>
