@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#1565c0" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="format-detection" content="telephone=no" />
+<title>Roulette AI Predictor</title>
+<link rel="stylesheet" href="style.css" />
+<link rel="manifest" href="manifest.json" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<!-- Splash overlay -->
+<div id="splash" class="splash">
+  <div class="splash-inner">
+    <div class="logo-wheel">
+      <div class="wheel-ring"></div>
+      <div class="wheel-ring r2"></div>
+      <div class="wheel-core">🎯</div>
+    </div>
+    <h1 class="splash-title">Roulette AI</h1>
+    <p class="splash-sub">Smart Prediction Engine</p>
+    <div class="splash-bar"><span></span></div>
+  </div>
+</div>
+
+<!-- App shell -->
+<div class="app">
+
+  <!-- Top app bar -->
+  <header class="appbar">
+    <div class="brand">
+      <div class="brand-icon">🎯</div>
+      <div class="brand-text">
+        <div class="brand-title">Roulette AI</div>
+        <div class="brand-sub" id="modelStatus">No model trained</div>
+      </div>
+    </div>
+    <button class="icon-btn ripple" id="soundBtn" aria-label="sound">🔊</button>
+    <button class="icon-btn ripple" id="menuBtn" aria-label="menu">⋮</button>
+  </header>
+
+  <!-- Dropdown menu -->
+  <div class="menu" id="menu">
+    <button data-action="export" class="ripple">⬇️ Export Model</button>
+    <button data-action="import" class="ripple">⬆️ Import Model</button>
+    <button data-action="reset" class="ripple">🗑️ Reset All Data</button>
+    <button data-action="about" class="ripple">ℹ️ About</button>
+  </div>
+
+  <!-- Tabs -->
+  <nav class="tabs">
+    <button class="tab active ripple" data-tab="predict">
+      <span class="tab-ico">🔮</span><span>Predict</span>
+    </button>
+    <button class="tab ripple" data-tab="train">
+      <span class="tab-ico">🧠</span><span>Train</span>
+    </button>
+    <button class="tab ripple" data-tab="history">
+      <span class="tab-ico">📊</span><span>History</span>
+    </button>
+  </nav>
+
+  <main class="content">
+
+    <!-- ============ PREDICT TAB ============ -->
+    <section class="tab-panel active" id="tab-predict">
+
+      <div class="card">
+        <div class="card-head">
+          <h2>🔮 Next Round Prediction</h2>
+          <span class="pill" id="dataSize">0 rounds</span>
+        </div>
+
+        <p class="hint">Tap a slot, then tap numbers on the keypad below — fast & easy.</p>
+
+        <div class="seq-grid" id="seqGrid"></div>
+
+        <!-- Quick Number Keypad -->
+        <div class="keypad" id="keypad">
+          <div class="keypad-head">
+            <span>Active slot: <b id="activeSlotLbl">R-10</b></span>
+            <button class="link-btn ripple" id="closeKeypad">Hide ▾</button>
+          </div>
+          <div class="keypad-grid" id="keypadGrid"></div>
+          <div class="keypad-actions">
+            <button class="key-action ripple" id="kpBack">⌫ Back</button>
+            <button class="key-action ripple" id="kpClear">Clear All</button>
+            <button class="key-action ripple primary" id="kpNext">Next ▸</button>
+          </div>
+        </div>
+
+        <div class="quick-row">
+          <button class="ghost-btn ripple" id="clearSeq">Clear</button>
+          <button class="ghost-btn ripple" id="fillRecent">Use Recent</button>
+          <button class="ghost-btn ripple" id="toggleKeypad">⌨️ Keypad</button>
+        </div>
+
+        <button class="primary-btn big ripple" id="predictBtn">
+          <span>⚡ PREDICT NEXT</span>
+        </button>
+      </div>
+
+      <!-- Prediction result -->
+      <div class="card result-card hidden" id="resultCard">
+        <h3 class="result-title">🎯 AI Prediction</h3>
+
+        <div class="prediction-main">
+          <div class="pred-number-wrap">
+            <div class="pred-number" id="predNumber">--</div>
+            <div class="pred-color-tag" id="predColorTag">--</div>
+          </div>
+          <div class="pred-meta">
+            <div class="meta-row"><span>Confidence</span><b id="predConf">--</b></div>
+            <div class="meta-row"><span>Color</span><b id="predColor">--</b></div>
+            <div class="meta-row"><span>Parity</span><b id="predParity">--</b></div>
+            <div class="meta-row"><span>Dozen</span><b id="predDozen">--</b></div>
+            <div class="meta-row"><span>Range</span><b id="predRange">--</b></div>
+          </div>
+        </div>
+
+        <div class="confidence-bar"><div id="confFill"></div></div>
+
+        <h4 class="subhead">Top 5 Likely Numbers</h4>
+        <div class="top5" id="top5"></div>
+
+        <div class="actions-row">
+          <button class="ghost-btn ripple" id="saveActualBtn">✅ Record Actual Result</button>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ============ TRAIN TAB ============ -->
+    <section class="tab-panel" id="tab-train">
+
+      <div class="card">
+        <div class="card-head">
+          <h2>🧠 Train Model</h2>
+          <span class="pill" id="trainCount">0 samples</span>
+        </div>
+
+        <p class="hint">Upload a file, paste numbers, or use the keypad — your choice.</p>
+
+        <div class="upload-zone ripple" id="uploadZone">
+          <div class="upload-ico">📁</div>
+          <div class="upload-text">
+            <b>Tap to Upload Data</b>
+            <small>CSV, TXT or paste numbers below</small>
+          </div>
+          <input type="file" id="fileInput" accept=".csv,.txt" hidden />
+        </div>
+
+        <div class="divider"><span>OR</span></div>
+
+        <label class="lbl">Paste Numbers</label>
+        <textarea id="pasteBox" placeholder="e.g. 5, 17, 23, 0, 11, 32, 8..." inputmode="numeric"></textarea>
+        <button class="primary-btn ripple" id="addPasteBtn">➕ Add to Training Data</button>
+
+        <div class="divider"><span>OR</span></div>
+
+        <label class="lbl">Quick Add via Keypad</label>
+        <div class="train-keypad-wrap">
+          <div class="train-input-display" id="trainInputDisplay">
+            <span class="placeholder">Tap numbers below…</span>
+          </div>
+          <div class="keypad-grid mini" id="trainKeypadGrid"></div>
+          <div class="keypad-actions">
+            <button class="key-action ripple" id="trainBack">⌫</button>
+            <button class="key-action ripple" id="trainClear">Clear</button>
+            <button class="key-action ripple primary" id="trainAddBtn">Add Number</button>
+          </div>
+        </div>
+
+        <div class="actions-row mt16">
+          <button class="ghost-btn ripple" id="trainBtn">⚙️ Train Model</button>
+          <button class="danger-btn ripple" id="clearTrainBtn">🗑️ Clear Data</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>📈 Training Stats</h3>
+        <div class="stats-grid">
+          <div class="stat"><div class="stat-num" id="statTotal">0</div><div class="stat-lbl">Total</div></div>
+          <div class="stat"><div class="stat-num red" id="statRed">0</div><div class="stat-lbl">Reds</div></div>
+          <div class="stat"><div class="stat-num black" id="statBlack">0</div><div class="stat-lbl">Blacks</div></div>
+          <div class="stat"><div class="stat-num green" id="statZero">0</div><div class="stat-lbl">Zeros</div></div>
+        </div>
+        <div class="heat-wrap">
+          <div class="heat-title">Number Frequency Heatmap</div>
+          <div class="heat-grid" id="heatGrid"></div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ============ HISTORY TAB ============ -->
+    <section class="tab-panel" id="tab-history">
+
+      <div class="card">
+        <div class="card-head">
+          <h2>📊 Prediction History</h2>
+          <span class="pill" id="accuracyPill">--% acc</span>
+        </div>
+        <p class="hint">Track predictions vs actual outcomes to evaluate accuracy.</p>
+        <div class="hist-list" id="histList"><div class="empty">No predictions yet.</div></div>
+        <button class="danger-btn mt12 ripple" id="clearHistBtn">🗑️ Clear History</button>
+      </div>
+
+      <div class="card">
+        <h3>🎨 Recent Numbers</h3>
+        <div class="recent-strip" id="recentStrip"></div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <!-- Modal -->
+  <div class="modal hidden" id="modal">
+    <div class="modal-card">
+      <h3 id="modalTitle">Title</h3>
+      <div id="modalBody"></div>
+      <div class="modal-actions">
+        <button class="ghost-btn ripple" id="modalCancel">Cancel</button>
+        <button class="primary-btn ripple" id="modalOk">OK</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
